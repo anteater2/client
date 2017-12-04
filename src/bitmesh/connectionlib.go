@@ -5,8 +5,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/anteater2/chord-node/key"
-	"github.com/anteater2/rpc/rpc"
+	"github.com/anteater2/bitmesh/chord"
+	"github.com/anteater2/bitmesh/chord/key"
+	"github.com/anteater2/bitmesh/rpc"
 )
 
 var RPCCaller *rpc.Caller
@@ -21,21 +22,6 @@ type DHT struct {
 	maxkey key.Key
 }
 
-// RemoteNode holds information for connecting to a remote node
-type RemoteNode struct {
-	Address string
-	Key     key.Key
-}
-type GetKeyResponse struct {
-	Data  []byte
-	Error bool
-}
-
-type PutKeyRequest struct {
-	KeyString string
-	Data      []byte
-}
-
 func Create(address string) DHT {
 	table := DHT{
 		constr: address + ":2001",
@@ -47,9 +33,10 @@ func Create(address string) DHT {
 			panic("Could not create RPCCaller!")
 		}
 		RPCCaller = tmpC
-		RPCGetKey = RPCCaller.Declare("", GetKeyResponse{}, 5*time.Second)
-		RPCPutKey = RPCCaller.Declare(PutKeyRequest{}, true, 5*time.Second)
-		RPCFindSuccessor = RPCCaller.Declare(key.NewKey(1), RemoteNode{}, 6*time.Second)
+		RPCCaller.Start()
+		RPCGetKey = RPCCaller.Declare("", chord.GetKeyResponse{}, 5*time.Second)
+		RPCPutKey = RPCCaller.Declare(chord.PutKeyRequest{}, true, 5*time.Second)
+		RPCFindSuccessor = RPCCaller.Declare(key.NewKey(1), chord.RemoteNode{}, 6*time.Second)
 		RPCIsAlive = RPCCaller.Declare(true, true, 1*time.Second)
 	}
 	return table
@@ -57,12 +44,12 @@ func Create(address string) DHT {
 
 // Put puts a key-value pair into dht.
 func (dht *DHT) Put(k string, value string) error {
-	hostInterf, err := RPCFindSuccessor(dht.constr, key.Hash(k, 1024))
+	hostInterf, err := RPCFindSuccessor(dht.constr, key.Hash(k, 1<<10))
 	if err != nil { // I hate this language
 		log.Fatal(err)
 	}
-	host := hostInterf.(RemoteNode)
-	rv, err2 := RPCPutKey(host.ConStr(), PutKeyRequest{
+	host := hostInterf.(chord.RemoteNode)
+	rv, err2 := RPCPutKey(ConStr(&host), chord.PutKeyRequest{
 		KeyString: k,
 		Data:      []byte(value),
 	})
@@ -76,24 +63,24 @@ func (dht *DHT) Put(k string, value string) error {
 }
 
 // Get gets the value corresponding to the key from dht
-func (dht *DHT) Get(key string) (string, error) {
-	hostInterf, err := RPCFindSuccessor(dht.constr, key)
+func (dht *DHT) Get(k string) (string, error) {
+	hostInterf, err := RPCFindSuccessor(dht.constr, key.Hash(k, 1<<10))
 	if err != nil { // I hate this language
 		panic("IDK3")
 	}
-	host := hostInterf.(RemoteNode)
-	rvInterf, err2 := RPCGetKey(host.ConStr(), key)
+	host := hostInterf.(chord.RemoteNode)
+	rvInterf, err2 := RPCGetKey(ConStr(&host), k)
 	if err2 != nil { // I hate this language
 		panic("IDK4")
 	}
-	rv := rvInterf.(GetKeyResponse)
-	if rv.Error {
+	rv := rvInterf.(chord.GetKeyResponse)
+	if rv.Error == false {
 		panic("Could not get key!")
 	}
 	return string(rv.Data), nil
 }
 
 // Gets a connection string for a RemoteNode.
-func (node *RemoteNode) ConStr() string {
+func ConStr(node *chord.RemoteNode) string {
 	return node.Address + ":2001"
 }
