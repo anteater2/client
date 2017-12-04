@@ -6,13 +6,13 @@ import (
 )
 
 func TestPutGetSimple(*testing.T) {
-	tbl := Create("172.0.0.1")
+	tbl := Create("172.0.0.2")
 	log.Printf("Created DHT! Putting value...")
 	tbl.Put("hello", "world")
 	log.Printf("Put value! Getting value...")
 	rv, _ := tbl.Get("hello")
 	if rv != "world" {
-		panic("FUCK THIS LANGUAGE JESUS")
+		panic("uh oh")
 	}
 	log.Printf("Got value!")
 }

@@ -43,6 +43,7 @@ func Create(address string) DHT {
 
 // Put puts a key-value pair into dht.
 func (dht *DHT) Put(k string, value string) error {
+	log.Printf("PUTCALL@%s", dht.constr)
 	hostInterf, err := RPCFindSuccessor(dht.constr, key.Hash(k, 1024))
 	if err != nil { // I hate this language
 		log.Fatal(err)
