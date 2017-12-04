@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/anteater2/chord-node/key"
+	"github.com/anteater2/chord-node/structs"
 	"github.com/anteater2/rpc/rpc"
 )
 
@@ -21,21 +22,6 @@ type DHT struct {
 	maxkey key.Key
 }
 
-// RemoteNode holds information for connecting to a remote node
-type RemoteNode struct {
-	Address string
-	Key     key.Key
-}
-type GetKeyResponse struct {
-	Data  []byte
-	Error bool
-}
-
-type PutKeyRequest struct {
-	KeyString string
-	Data      []byte
-}
-
 func Create(address string) DHT {
 	table := DHT{
 		constr: address + ":2001",
@@ -47,9 +33,9 @@ func Create(address string) DHT {
 			panic("Could not create RPCCaller!")
 		}
 		RPCCaller = tmpC
-		RPCGetKey = RPCCaller.Declare("", GetKeyResponse{}, 5*time.Second)
-		RPCPutKey = RPCCaller.Declare(PutKeyRequest{}, true, 5*time.Second)
-		RPCFindSuccessor = RPCCaller.Declare(key.NewKey(1), RemoteNode{}, 6*time.Second)
+		RPCGetKey = RPCCaller.Declare("", structs.GetKeyResponse{}, 5*time.Second)
+		RPCPutKey = RPCCaller.Declare(structs.PutKeyRequest{}, true, 5*time.Second)
+		RPCFindSuccessor = RPCCaller.Declare(key.NewKey(1), structs.RemoteNode{}, 6*time.Second)
 		RPCIsAlive = RPCCaller.Declare(true, true, 1*time.Second)
 	}
 	return table
@@ -61,8 +47,8 @@ func (dht *DHT) Put(k string, value string) error {
 	if err != nil { // I hate this language
 		log.Fatal(err)
 	}
-	host := hostInterf.(RemoteNode)
-	rv, err2 := RPCPutKey(host.ConStr(), PutKeyRequest{
+	host := hostInterf.(structs.RemoteNode)
+	rv, err2 := RPCPutKey(ConStr(&host), structs.PutKeyRequest{
 		KeyString: k,
 		Data:      []byte(value),
 	})
@@ -81,19 +67,19 @@ func (dht *DHT) Get(key string) (string, error) {
 	if err != nil { // I hate this language
 		panic("IDK3")
 	}
-	host := hostInterf.(RemoteNode)
-	rvInterf, err2 := RPCGetKey(host.ConStr(), key)
+	host := hostInterf.(structs.RemoteNode)
+	rvInterf, err2 := RPCGetKey(ConStr(&host), key)
 	if err2 != nil { // I hate this language
 		panic("IDK4")
 	}
-	rv := rvInterf.(GetKeyResponse)
+	rv := rvInterf.(structs.GetKeyResponse)
 	if rv.Error {
 		panic("Could not get key!")
 	}
 	return string(rv.Data), nil
 }
 
-// Gets a connection string for a RemoteNode.
-func (node *RemoteNode) ConStr() string {
+// Gets a connection string for a structs.RemoteNode.
+func ConStr(node *structs.RemoteNode) string {
 	return node.Address + ":2001"
 }
